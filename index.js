@@ -16,11 +16,7 @@ const cors    = require('cors');
 const Parser  = require('rss-parser');
 
 const app = express();
-app.use(cors({
-  origin: '*',
-  methods: ['GET'],
-  allowedHeaders: ['Content-Type']
-}));
+app.use(cors());
 app.use(express.json());
 
 const parser = new Parser({
@@ -48,6 +44,32 @@ const FEEDS = {
   cnn_americas:'http://rss.cnn.com/rss/edition_americas.rss',
   guardian:    'https://www.theguardian.com/world/rss',
   france24:    'https://www.france24.com/en/rss',
+  // ── PERÚ ───────────────────────────────────────────────────────────────────
+  // caretas.pe/feed y diariouno.pe/feed verificados en feedspot feb 2026
+  caretas:      'https://caretas.pe/feed',
+  diariouno_pe: 'https://diariouno.pe/feed',
+  // Voz de América — feeds por país (verificados en vozdeamerica.com/rssfeeds)
+  voa_peru:     'https://www.vozdeamerica.com/api/z_ytjmppnpprquv',
+  voa_vzla:     'https://www.vozdeamerica.com/api/zrtmqolvo_pvquo',
+  voa_bolivia:  'https://www.vozdeamerica.com/api/zqtqoolvo_pvquo',
+  voa_ecuador:  'https://www.vozdeamerica.com/api/z_ytpmmpnppoquv',
+  voa_mexico:   'https://www.vozdeamerica.com/api/z_ytjmppnpprqut',
+  // ── VENEZUELA ──────────────────────────────────────────────────────────────
+  // caracaschronicles y eldiario.com verificados en feedspot 2026
+  caracaschron: 'https://www.caracaschronicles.com/feed',
+  elnacional_ve:'https://www.elnacional.com/feed/',
+  // ── BOLIVIA ────────────────────────────────────────────────────────────────
+  // Los Tiempos y Erbol — medios bolivianos activos
+  lostiempos:   'https://www.lostiempos.com/rss.xml',
+  erbol:        'https://erbol.com.bo/feed',
+  // ── ECUADOR ────────────────────────────────────────────────────────────────
+  // cronica.com.ec y eldiario.ec verificados en feedspot 2026
+  cronica_ec:   'https://www.cronica.com.ec/feed',
+  eldiario_ec:  'https://www.eldiario.ec/feed',
+  // ── MÉXICO ─────────────────────────────────────────────────────────────────
+  // animalpolitico y proceso verificados activos 2026
+  animalpol:    'https://animalpolitico.com/feed',
+  proceso_mx:   'https://www.proceso.com.mx/rss/',
   // ── CHILE ──────────────────────────────────────────────────────────────────
   // Cooperativa: URLs correctas por sección (verificadas marzo 2026)
   coop_pais:    'https://www.cooperativa.cl/noticias/site/tax/port/all/rss_3___1.xml',
@@ -74,6 +96,13 @@ const FEED_LABELS = {
   coop_pais:'Cooperativa', coop_mundo:'Cooperativa', coop_econ:'Cooperativa',
   biobio:'BioBioChile', theclinic:'The Clinic', ciper:'CIPER Chile',
   lanacion:'La Nación', batimes:'Buenos Aires Times', perfil:'Perfil',
+  caretas:'Caretas (Perú)', diariouno_pe:'Diario Uno (Perú)',
+  voa_peru:'VOA Español', voa_vzla:'VOA Español', voa_bolivia:'VOA Español',
+  voa_ecuador:'VOA Español', voa_mexico:'VOA Español',
+  caracaschron:'Caracas Chronicles', elnacional_ve:'El Nacional (Venezuela)',
+  lostiempos:'Los Tiempos (Bolivia)', erbol:'Erbol (Bolivia)',
+  cronica_ec:'Crónica (Ecuador)', eldiario_ec:'El Diario (Ecuador)',
+  animalpol:'Animal Político (México)', proceso_mx:'Proceso (México)',
 };
 
 // ─── CACHÉ ────────────────────────────────────────────────────────────────────
@@ -146,8 +175,8 @@ const EVENTS_CFG = {
         keywords:['brazil','brasil','lula','real','inflation','economy','economía','interest rate','fiscal'] },
   15: { feeds:['bbc','aljazeera','bbc_mid'],
         keywords:['opec','oil','petróleo','crude','saudi','energy','barrel','precio petróleo','opep'] },
-  16: { feeds:['bbc','cnn_americas','coop_mundo','lanacion'],
-        keywords:['mexico','migración','migration','cartel','sheinbaum','border','frontera','fentanyl','sinaloa'] },
+  16: { feeds:['bbc','animalpol','proceso_mx','cnn_americas'],
+        keywords:['mexico','migración','migration','cartel','sheinbaum','border','frontera','fentanyl','sinaloa','tmec','narco'] },
   17: { feeds:['bbc_asia','aljazeera','guardian'],
         keywords:['myanmar','burma','junta','coup','rohingya','resistance','military'] },
   18: { feeds:['bbc','guardian','npr'],
@@ -203,8 +232,8 @@ const EVENTS_CFG = {
         keywords:['congo brazzaville','republic of congo','sassou','oil','petróleo','debt','china','deuda'] },
   43: { feeds:['lanacion','batimes','perfil'],
         keywords:['argentina','milei','buenos aires','ajuste','economy','inflation','inflación','libertad avanza','dólar','imf','fmi'] },
-  44: { feeds:['bbc_latam','aljazeera','lanacion'],
-        keywords:['bolivia','la paz','arce','evo morales','mas','golpe','crisis','lithium','litio'] },
+  44: { feeds:['bbc_latam','lostiempos','erbol','aljazeera'],
+        keywords:['bolivia','la paz','arce','evo morales','mas','golpe','crisis','litio','lithium','elecciones','morales'] },
   45: { feeds:['bbc_latam','aljazeera','cnn'],
         keywords:['panama','canal','trump','sovereignty','soberanía','china','water','agua','transit','tránsito'] },
   46: { feeds:['bbc_asia','aljazeera'],
@@ -220,10 +249,6 @@ const EVENTS_CFG = {
 };
 
 // ─── ENDPOINTS ────────────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'Atlas Conflictos RSS Server v2.0' });
-});
-
 app.get('/news', async (req, res) => {
   const eventId = parseInt(req.query.event);
   const limit   = Math.min(parseInt(req.query.limit) || 30, 50);
@@ -283,7 +308,7 @@ app.get('/warmup', async (req, res) => {
 });
 
 // ─── INICIO ───────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3001;
+const PORT = 3001;
 app.listen(PORT, async () => {
   console.log(`\n✅ ATLAS RSS Server v2.0 corriendo en http://localhost:${PORT}`);
   console.log(`   /news?event=N   /status   /warmup\n`);
